@@ -7,7 +7,9 @@ A real-time price comparison tool for medical cannabis products. This tool fetch
 - Real-time price data from multiple pharmacies
 - Display of product names (Sorte), cultivars, pharmacy IDs, and prices
 - Price trend analysis showing changes between measurements
-- Filter option to display only products with price changes
+- Filter options:
+  - Show only products with price changes
+  - Hide products where Sanvivo offers the lowest price
 - Automatic price sorting
 - CSV export functionality
 - Historical data storage with SQLite database
@@ -62,7 +64,9 @@ A real-time price comparison tool for medical cannabis products. This tool fetch
 
 5. Use the dropdown menu to select and load historical data from previous fetches.
 
-6. Check the "Show only price changes" box to filter the display to show only products with changed prices.
+6. Use the filter options to customize your view:
+   - Check "Show only price changes" to filter the display to show only products with changed prices.
+   - Check "Hide Sanvivo best prices" to show only products where Sanvivo is not offering the lowest price.
 
 7. Use the "Download CSV" button to export the currently displayed data if needed.
 
@@ -71,7 +75,7 @@ A real-time price comparison tool for medical cannabis products. This tool fetch
 The tool displays the following information for each product:
 - **Sorte**: Product name/strain
 - **Kultivar**: Cultivar name
-- **Pharmacy ID**: Identifier of the pharmacy offering the lowest price
+- **Pharmacy ID**: Identifier of the pharmacy offering the lowest price (displays "Sanvivo" for Sanvivo's ID)
 - **Price (€/g)**: Lowest price per gram in euros
 - **Trend**: Price change compared to the previous measurement, shown with directional arrows (↑, →, ↓) and the exact change amount
 
@@ -85,6 +89,10 @@ The tool automatically compares current prices with the most recent previous mea
 - First data point: When there's no previous data for comparison
 
 The "Show only price changes" filter lets you focus on products that have price increases, decreases, or are new to the dataset, hiding products with unchanged prices.
+
+## Pharmacy Filters
+
+The "Hide Sanvivo best prices" filter allows you to focus only on products where Sanvivo is not the pharmacy offering the lowest price. This is useful for identifying competitive pricing opportunities or products where other pharmacies are more competitive.
 
 ## Database
 

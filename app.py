@@ -155,6 +155,9 @@ def add_trend_analysis(current_df, timestamp=None):
     # Make a copy to avoid modifying the original
     df = current_df.copy()
     
+    # Replace Sanvivo's ID with its name
+    df["Pharmacy ID"] = df["Pharmacy ID"].apply(lambda x: "Sanvivo" if x == "8I6qNL3zUifl8peYH9Tu1TcOXSt1" else x)
+    
     # Get previous data
     prev_timestamp = None
     prev_df = None
@@ -223,6 +226,9 @@ def main():
     
     if 'show_only_changes' not in st.session_state:
         st.session_state.show_only_changes = False
+    
+    if 'show_not_sanvivo' not in st.session_state:
+        st.session_state.show_not_sanvivo = False
 
     # Layout for fetch button and timestamp selection
     col1, col2 = st.columns(2)
@@ -271,13 +277,26 @@ def main():
         col3, col4 = st.columns(2)
         
         with col3:
-            # Filter checkbox
-            show_only_changes = st.checkbox(
-                "Show only price changes", 
-                value=st.session_state.show_only_changes,
-                help="Filter to show only products with price changes"
-            )
-            st.session_state.show_only_changes = show_only_changes
+            # Filter checkboxes
+            filter_col1, filter_col2 = st.columns(2)
+            
+            with filter_col1:
+                # Price changes filter
+                show_only_changes = st.checkbox(
+                    "Show only price changes", 
+                    value=st.session_state.show_only_changes,
+                    help="Filter to show only products with price changes"
+                )
+                st.session_state.show_only_changes = show_only_changes
+            
+            with filter_col2:
+                # Non-Sanvivo filter
+                show_not_sanvivo = st.checkbox(
+                    "Hide Sanvivo best prices", 
+                    value=st.session_state.show_not_sanvivo,
+                    help="Filter to show only products where Sanvivo is not offering the lowest price"
+                )
+                st.session_state.show_not_sanvivo = show_not_sanvivo
         
         with col4:
             # Export to CSV option
@@ -295,16 +314,29 @@ def main():
         # Create a styled dataframe
         df_display = st.session_state.product_df.copy()
         
-        # Apply filter if requested
+        # Track if any filters are applied
+        filters_applied = False
+        
+        # Apply price change filter if requested
         if st.session_state.show_only_changes:
             # Filter to show only products with price changes or new products
             # Exclude "→ Unchanged" and "First data point"
             df_display = df_display[~df_display["Trend"].isin(["→ Unchanged", "First data point"])]
-            
-            if df_display.empty:
-                st.info("No price changes found in the current dataset.")
-                # Show unfiltered data if filtered is empty
-                df_display = st.session_state.product_df.copy()
+            filters_applied = True
+        
+        # Apply Sanvivo filter if requested
+        if st.session_state.show_not_sanvivo:
+            # Filter to show only products where Sanvivo is not the cheapest vendor
+            # (Original vendor IDs are in the database, so we check for the ID, not the name)
+            df_display = df_display[df_display["Pharmacy ID"] != "Sanvivo"]
+            df_display = df_display[df_display["Pharmacy ID"] != "8I6qNL3zUifl8peYH9Tu1TcOXSt1"]
+            filters_applied = True
+        
+        # Show message if filters resulted in empty dataframe
+        if filters_applied and df_display.empty:
+            st.info("No products match the current filter settings.")
+            # Show unfiltered data if filtered is empty
+            df_display = st.session_state.product_df.copy()
         
         # Apply styling with color-coded trend indicators
         st.dataframe(
