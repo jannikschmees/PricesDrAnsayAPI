@@ -6,8 +6,11 @@ A real-time price comparison tool for medical cannabis products. This tool fetch
 
 - Real-time price data from multiple pharmacies
 - Display of product names (Sorte), cultivars, pharmacy IDs, and prices
+- Price trend analysis showing changes between measurements
+- Filter option to display only products with price changes
 - Automatic price sorting
 - CSV export functionality
+- Historical data storage with SQLite database
 - Clean and professional interface
 
 ## Prerequisites
@@ -55,9 +58,13 @@ A real-time price comparison tool for medical cannabis products. This tool fetch
 
 3. The application will open in your default web browser.
 
-4. Click "Fetch Prices" to get the current price data.
+4. Click "Fetch Prices" to get the current price data. This will also save the data to the SQLite database.
 
-5. Use the "Download CSV" button to export the data if needed.
+5. Use the dropdown menu to select and load historical data from previous fetches.
+
+6. Check the "Show only price changes" box to filter the display to show only products with changed prices.
+
+7. Use the "Download CSV" button to export the currently displayed data if needed.
 
 ## Data Display
 
@@ -66,6 +73,26 @@ The tool displays the following information for each product:
 - **Kultivar**: Cultivar name
 - **Pharmacy ID**: Identifier of the pharmacy offering the lowest price
 - **Price (€/g)**: Lowest price per gram in euros
+- **Trend**: Price change compared to the previous measurement, shown with directional arrows (↑, →, ↓) and the exact change amount
+
+## Trend Analysis
+
+The tool automatically compares current prices with the most recent previous measurement to show:
+- Price increases (↑): Shown with an up arrow and the exact amount of increase
+- Price decreases (↓): Shown with a down arrow and the exact amount of decrease
+- Unchanged prices (→): Shown with a horizontal arrow
+- New products: Products that weren't in the previous measurement
+- First data point: When there's no previous data for comparison
+
+The "Show only price changes" filter lets you focus on products that have price increases, decreases, or are new to the dataset, hiding products with unchanged prices.
+
+## Database
+
+The application uses SQLite to store:
+- Timestamps of when data was fetched
+- Complete dataset from each fetch
+
+This allows for historical comparison and tracking of price changes over time.
 
 ## Notes
 
@@ -73,6 +100,7 @@ The tool displays the following information for each product:
 - The tool only displays products with valid pricing information
 - All prices are shown in euros per gram
 - The data is fetched in real-time when clicking the "Fetch Prices" button
+- The SQLite database file (sanvivo_prices.db) is created automatically
 
 ## Security
 
