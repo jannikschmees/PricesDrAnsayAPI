@@ -12,8 +12,21 @@ API_ENDPOINT = "https://europe-west3-au-digital.cloudfunctions.net/dransay/api/w
 API_KEY = os.getenv("DRANSAY_API_KEY")
 HEADERS = {"x-api-key": API_KEY}
 
+# Define the top pharmacies by their IDs
+TOP_PHARMACY_IDS = {
+    "zMztHDq7X50CjGIs5NeX": "Asavita",
+    "CaotAefOXilSE0hewO1c": "Herbery Online Apotheke",
+    "FhCdipzdTKWJMGYvPK0P": "higreen Drei hasen Apotheke",
+    "QV7wYUp0cGHmAgUZWkT9": "Grafenberg Apotheke",
+    "i03wd7KWpfpLHv7xYT37": "360 Grad Apotheke",
+    "hxG2kWd9KHdqWin4L771": "higreen Adler Apotheke",
+    "rKtJBabOpl3G8wd9Rilm": "Medivital Apo420",
+    "2f6ANjI8S2zTFfYDagp6": "Cannoiva (Ehrlich Apotheke)",
+    "Ox4GxbMJuJUs4cTWPJQy": "sanvivo"
+}
+
 def fetch_product_data():
-    """Fetches product data from the DrAnsay API and processes it."""
+    """Fetches product data from the DrAnsay API and processes it, considering only top pharmacies."""
     if not API_KEY:
         raise ValueError("API key not found. Please ensure it's set in the .env file.")
 
@@ -24,42 +37,47 @@ def fetch_product_data():
 
         products_list = data if isinstance(data, list) else data.get('products', [])
         if not products_list:
-            return pd.DataFrame(columns=["Sorte", "Kultivar", "Pharmacy ID", "Price (€/g)"])
+            return pd.DataFrame(columns=["id", "Sorte", "Kultivar", "Pharmacy ID", "Price (€/g)"])
 
         extracted_data = []
         for product in products_list:
+            product_id = product.get('id')
             product_name = product.get('sorte')
-            if not product_name:  # Skip products without a name
+            if not product_name or not product_id:  # Skip products without a name or ID
                 continue
 
-            kultivar = product.get('kultivar', '')  # Get kultivar, empty string if not present
+            kultivar = product.get('kultivar', '')
             vendors = product.get('vendors', {})
             cheapest_price = float('inf')
-            cheapest_vendor = None
+            cheapest_vendor_id = None
 
-            # Find the cheapest vendor
+            # Find the cheapest vendor *among the top pharmacies*
             for vendor_id, vendor_data in vendors.items():
+                if vendor_id not in TOP_PHARMACY_IDS:
+                    continue
                 price_cents = vendor_data.get('price')
                 if price_cents is not None:
                     try:
                         price_euros = float(price_cents) / 100.0
                         if price_euros < cheapest_price:
                             cheapest_price = price_euros
-                            cheapest_vendor = vendor_id
+                            cheapest_vendor_id = vendor_id
                     except (ValueError, TypeError):
                         continue
 
-            # If we found a valid price and vendor, add to results
-            if cheapest_vendor is not None:
+            # If we found a valid price and vendor from the top list, add to results
+            if cheapest_vendor_id is not None:
+                pharmacy_name = TOP_PHARMACY_IDS.get(cheapest_vendor_id, cheapest_vendor_id)
                 extracted_data.append({
+                    "id": product_id,
                     "Sorte": product_name,
                     "Kultivar": kultivar,
-                    "Pharmacy ID": cheapest_vendor,
+                    "Pharmacy ID": pharmacy_name,
                     "Price (€/g)": cheapest_price
                 })
 
         if not extracted_data:
-            return pd.DataFrame(columns=["Sorte", "Kultivar", "Pharmacy ID", "Price (€/g)"])
+            return pd.DataFrame(columns=["id", "Sorte", "Kultivar", "Pharmacy ID", "Price (€/g)"])
 
         df = pd.DataFrame(extracted_data)
         return df.sort_values(by="Price (€/g)").reset_index(drop=True)
@@ -79,8 +97,8 @@ def add_trend_analysis(current_df, timestamp=None):
     # Make a copy to avoid modifying the original
     df = current_df.copy()
     
-    # Replace Sanvivo's ID with its name
-    df["Pharmacy ID"] = df["Pharmacy ID"].apply(lambda x: "Sanvivo" if x == "8I6qNL3zUifl8peYH9Tu1TcOXSt1" else x)
+    # NOTE: Pharmacy ID is now the name, so no need to replace Sanvivo's ID here
+    # df["Pharmacy ID"] = df["Pharmacy ID"].apply(lambda x: "Sanvivo" if x == "8I6qNL3zUifl8peYH9Tu1TcOXSt1" else x)
     
     # Get previous data
     prev_timestamp = None
@@ -120,9 +138,14 @@ def add_trend_analysis(current_df, timestamp=None):
         current_price = row["Price (€/g)"]
         
         # Find this product in previous data
+        # Make sure previous data also uses Pharmacy Name if this logic changes how data is stored
+        # Assuming DB stores raw API data, the comparison logic needs adjustment or DB needs name storage
         prev_product = prev_df[prev_df["Sorte"] == product_name]
         
         if not prev_product.empty:
+            # If multiple pharmacies had the product previously, we need to be careful.
+            # Let's assume the stored data has the *cheapest* price from the *previous* set of top pharmacies.
+            # This might require rethinking how data is stored or retrieved if the 'top pharmacies' list changes often.
             prev_price = prev_product.iloc[0]["Price (€/g)"]
             
             # Calculate price difference with 2 decimal precision
