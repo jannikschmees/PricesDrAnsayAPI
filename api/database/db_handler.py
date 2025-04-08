@@ -1,6 +1,7 @@
 import sqlite3
 import pandas as pd
 import datetime
+import json
 
 # Database path
 DB_PATH = "sanvivo_prices.db"
@@ -17,6 +18,21 @@ def init_db():
             data TEXT NOT NULL
         )
     ''')
+    
+    # Create table for storing detailed price data from all pharmacies
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS detailed_price_data (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp TEXT NOT NULL,
+            product_id TEXT NOT NULL,
+            product_name TEXT NOT NULL,
+            pharmacy_id TEXT NOT NULL, 
+            pharmacy_name TEXT NOT NULL,
+            price REAL,
+            UNIQUE(timestamp, product_id, pharmacy_id)
+        )
+    ''')
+    
     conn.commit()
     conn.close()
 
@@ -34,6 +50,91 @@ def save_to_db(df):
     conn.commit()
     conn.close()
     return True
+
+def save_detailed_prices(data, timestamp=None):
+    """
+    Save detailed price data from all top pharmacies for historical analysis.
+    
+    Args:
+        data: List of dictionaries containing detailed price data
+        timestamp: Optional timestamp (uses current time if not provided)
+    
+    Returns:
+        bool: Success or failure
+    """
+    if not data:
+        return False
+    
+    if timestamp is None:
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    
+    try:
+        for item in data:
+            c.execute("""
+                INSERT OR REPLACE INTO detailed_price_data 
+                (timestamp, product_id, product_name, pharmacy_id, pharmacy_name, price)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (
+                timestamp,
+                item.get("product_id"),
+                item.get("product_name"),
+                item.get("pharmacy_id"),
+                item.get("pharmacy_name"),
+                item.get("price")
+            ))
+        
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"Error saving detailed price data: {e}")
+        conn.rollback()
+        conn.close()
+        return False
+
+def get_pharmacy_price_history(product_id=None, pharmacy_id=None, start_date=None, end_date=None):
+    """
+    Get historical price data filtered by product and/or pharmacy.
+    
+    Args:
+        product_id: Optional product ID to filter by
+        pharmacy_id: Optional pharmacy ID to filter by
+        start_date: Optional start date for the time range
+        end_date: Optional end date for the time range
+        
+    Returns:
+        DataFrame: Historical price data matching the criteria
+    """
+    conn = sqlite3.connect(DB_PATH)
+    
+    query = "SELECT * FROM detailed_price_data WHERE 1=1"
+    params = []
+    
+    if product_id:
+        query += " AND product_id = ?"
+        params.append(product_id)
+    
+    if pharmacy_id:
+        query += " AND pharmacy_id = ?"
+        params.append(pharmacy_id)
+    
+    if start_date:
+        query += " AND timestamp >= ?"
+        params.append(start_date)
+    
+    if end_date:
+        query += " AND timestamp <= ?"
+        params.append(end_date)
+    
+    query += " ORDER BY timestamp DESC"
+    
+    df = pd.read_sql_query(query, conn, params=params)
+    conn.close()
+    
+    return df
 
 def get_all_timestamps():
     """Get all timestamps from the database."""
